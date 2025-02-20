@@ -115,3 +115,119 @@
         status: uint
     }
 )
+
+(define-map BlockedUsers
+    {
+        blocker: principal,
+        blocked: principal
+    }
+    {
+        timestamp: uint
+    }
+)
+
+;; Private functions
+(define-private (check-rate-limit (user principal) (action-type uint))
+    (let
+        (
+            (rate-data (default-to 
+                {
+                    daily-actions: u0,
+                    friend-requests: u0,
+                    status-updates: u0,
+                    last-reset: (unwrap-panic (get-block-info? time u0))
+                }
+                (map-get? RateLimits user)
+            ))
+            (current-time (unwrap-panic (get-block-info? time u0)))
+            (should-reset (> (- current-time (get last-reset rate-data)) RATE_LIMIT_RESET_PERIOD))
+        )
+        (if should-reset
+            ;; Reset counters if period expired
+            (begin
+                (map-set RateLimits user
+                    {
+                        daily-actions: u1,
+                        friend-requests: (if (is-eq action-type u1) u1 u0),
+                        status-updates: (if (is-eq action-type u2) u1 u0),
+                        last-reset: current-time
+                    }
+                )
+                true
+            )
+            ;; Check limits
+            (and
+                (< (get daily-actions rate-data) MAX_ACTIONS_PER_DAY)
+                (or 
+                    (not (is-eq action-type u1))
+                    (< (get friend-requests rate-data) MAX_FRIEND_REQUESTS_PER_DAY)
+                )
+                (or
+                    (not (is-eq action-type u2))
+                    (< (get status-updates rate-data) MAX_STATUS_UPDATES_PER_DAY)
+                )
+            )
+        )
+    )
+)
+
+(define-private (update-rate-limit (user principal) (action-type uint))
+    (let
+        (
+            (rate-data (unwrap-panic (map-get? RateLimits user)))
+        )
+        (map-set RateLimits user
+            (merge rate-data {
+                daily-actions: (+ (get daily-actions rate-data) u1),
+                friend-requests: (+ (get friend-requests rate-data) (if (is-eq action-type u1) u1 u0)),
+                status-updates: (+ (get status-updates rate-data) (if (is-eq action-type u2) u1 u0))
+            })
+        )
+    )
+)
+
+(define-private (update-user-activity (user principal))
+    (let
+        (
+            (current-time (unwrap-panic (get-block-info? time u0)))
+            (activity (default-to
+                {
+                    last-seen: current-time,
+                    login-count: u0,
+                    total-actions: u0,
+                    last-action: current-time
+                }
+                (map-get? UserActivity user)
+            ))
+        )
+        (map-set UserActivity user
+            (merge activity {
+                last-seen: current-time,
+                total-actions: (+ (get total-actions activity) u1),
+                last-action: current-time
+            })
+        )
+    )
+)
+
+(define-private (max-uint (a uint) (b uint))
+    (if (>= a b)
+        a
+        b
+    )
+)
+
+(define-private (min-uint (a uint) (b uint))
+    (if (<= a b)
+        a
+        b
+    )
+)
+
+;; Check if users are friends
+(define-private (are-friends (user1 principal) (user2 principal))
+    (match (map-get? Friendships {user1: user1, user2: user2})
+        friendship (is-eq (get status friendship) FRIENDSHIP_ACTIVE)
+        false
+    )
+)
