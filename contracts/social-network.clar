@@ -135,11 +135,11 @@
                     daily-actions: u0,
                     friend-requests: u0,
                     status-updates: u0,
-                    last-reset: (unwrap-panic (get-block-info? time u0))
+                    last-reset: stacks-block-height
                 }
                 (map-get? RateLimits user)
             ))
-            (current-time (unwrap-panic (get-block-info? time u0)))
+            (current-time stacks-block-height)
             (should-reset (> (- current-time (get last-reset rate-data)) RATE_LIMIT_RESET_PERIOD))
         )
         (if should-reset
@@ -189,7 +189,7 @@
 (define-private (update-user-activity (user principal))
     (let
         (
-            (current-time (unwrap-panic (get-block-info? time u0)))
+            (current-time stacks-block-height)
             (activity (default-to
                 {
                     last-seen: current-time,
@@ -263,7 +263,7 @@
             last-seen-visible: true,
             profile-image-visible: true,
             encryption-enabled: false,
-            last-updated: (unwrap-panic (get-block-info? time u0))
+            last-updated: stacks-block-height
         }
         (map-get? UserPrivacy user)
     )
@@ -273,7 +273,7 @@
 (define-public (optimize-batch-size (user principal))
     (let (
         (batch-data (unwrap-panic (map-get? UserBatches user)))
-        (current-time (unwrap-panic (get-block-info? time u0)))
+        (current-time stacks-block-height)
         (time-since-last-batch (- current-time (get last-batch-timestamp batch-data)))
         (current-batch-size (get batch-size batch-data))
         (items-in-current-batch (get current-batch-items batch-data))
@@ -331,7 +331,7 @@
                 last-seen-visible: last-seen-visible,
                 profile-image-visible: profile-image-visible,
                 encryption-enabled: encryption-enabled,
-                last-updated: (unwrap-panic (get-block-info? time u0))
+                last-updated: stacks-block-height
             }
         )
         
@@ -341,7 +341,7 @@
         (print {
             event: "privacy-updated",
             user: caller,
-            timestamp: (unwrap-panic (get-block-info? time u0))
+            timestamp: stacks-block-height
         })
         (ok true)
     )
@@ -376,7 +376,7 @@
         (print {
             event: "profile-updated",
             user: caller,
-            timestamp: (unwrap-panic (get-block-info? time u0))
+            timestamp: stacks-block-height
         })
         (ok true)
     )
@@ -402,7 +402,7 @@
             event: "batch-size-updated",
             user: caller,
             new-size: new-size,
-            timestamp: (unwrap-panic (get-block-info? time u0))
+            timestamp: stacks-block-height
         })
         (ok true)
     )
@@ -415,17 +415,17 @@
             (caller tx-sender)
             (activity (default-to
                 {
-                    last-seen: (unwrap-panic (get-block-info? time u0)),
+                    last-seen: stacks-block-height,
                     login-count: u0,
                     total-actions: u0,
-                    last-action: (unwrap-panic (get-block-info? time u0))
+                    last-action: stacks-block-height
                 }
                 (map-get? UserActivity caller)
             ))
         )
         (map-set UserActivity caller
             (merge activity {
-                last-seen: (unwrap-panic (get-block-info? time u0)),
+                last-seen: stacks-block-height,
                 login-count: (+ (get login-count activity) u1)
             })
         )
@@ -433,7 +433,7 @@
         (print {
             event: "user-login",
             user: caller,
-            timestamp: (unwrap-panic (get-block-info? time u0))
+            timestamp: stacks-block-height
         })
         (ok true)
     )
