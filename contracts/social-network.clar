@@ -381,3 +381,60 @@
         (ok true)
     )
 )
+
+;; Batch management public functions
+(define-public (set-batch-size (new-size uint))
+    (let
+        (
+            (caller tx-sender)
+            (batch-data (unwrap-panic (map-get? UserBatches caller)))
+        )
+        (asserts! (check-active-user caller) ERR_DEACTIVATED)
+        (asserts! (and (>= new-size MIN_BATCH_SIZE) (<= new-size MAX_BATCH_SIZE)) ERR_INVALID_INPUT)
+        
+        (map-set UserBatches caller
+            (merge batch-data {
+                batch-size: new-size
+            })
+        )
+        
+        (print {
+            event: "batch-size-updated",
+            user: caller,
+            new-size: new-size,
+            timestamp: (unwrap-panic (get-block-info? time u0))
+        })
+        (ok true)
+    )
+)
+
+;; Activity tracking
+(define-public (record-login)
+    (let
+        (
+            (caller tx-sender)
+            (activity (default-to
+                {
+                    last-seen: (unwrap-panic (get-block-info? time u0)),
+                    login-count: u0,
+                    total-actions: u0,
+                    last-action: (unwrap-panic (get-block-info? time u0))
+                }
+                (map-get? UserActivity caller)
+            ))
+        )
+        (map-set UserActivity caller
+            (merge activity {
+                last-seen: (unwrap-panic (get-block-info? time u0)),
+                login-count: (+ (get login-count activity) u1)
+            })
+        )
+        
+        (print {
+            event: "user-login",
+            user: caller,
+            timestamp: (unwrap-panic (get-block-info? time u0))
+        })
+        (ok true)
+    )
+)
